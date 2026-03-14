@@ -7,7 +7,7 @@ import string
 import time
 
 # --- ১. কনফিগারেশন ---
-BOT_TOKEN = '8743917242:AAHaZfpFi13ZIYyglcNU0n1pvS2Z-WY3zes'
+BOT_TOKEN = '8743917242:AAHWDtO8Pfu35B-QUwxmsFivNkKUsgjuoMg'
 ADMIN_ID = 7585875519 
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 
