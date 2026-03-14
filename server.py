@@ -1,16 +1,21 @@
 from flask import Flask
-import threading
 import os
-import bot
+import threading
 
 app = Flask(__name__)
 
-@app.route('/')
+@app.route("/")
 def home():
     return "Bot is running"
 
 def run():
-    port = int(os.environ.get("PORT", 3000))
+    port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
 
-threading.Thread(target=run).start()
+def start():
+    thread = threading.Thread(target=run)
+    thread.start()
+
+start()
+
+import bot
