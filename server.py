@@ -9,7 +9,7 @@ def home():
     return "Bot is running"
 
 def run():
-    port = int(os.environ.get("PORT", 10000))
+    port = int(os.environ.get("PORT", 18012))
     app.run(host="0.0.0.0", port=port)
 
 def start():
