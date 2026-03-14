@@ -7,7 +7,7 @@ import string
 import time
 
 # --- ১. কনফিগারেশন ---
-BOT_TOKEN = '8743917242:AAEVNA3mEgTTK045gLWAuzN002ACTLw26Yo'
+BOT_TOKEN = '8743917242:AAHaZfpFi13ZIYyglcNU0n1pvS2Z-WY3zes'
 ADMIN_ID = 7585875519 
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 
@@ -520,12 +520,14 @@ def admin_block_user(message):
 print("--- Siyam, Your Premium Bot with History is Online! ---")
 # --- ৮. বোট রান (সবার শেষে) ---
 while True:
+    while True:
+    while True:
     try:
-        # এটি তোমার বোটকে সচল রাখবে এবং কানেকশন এরর হ্যান্ডেল করবে
+        print("--- Siyam, Your Bot is Starting with New Token! ---")
+        # timeout বাড়িয়ে দেওয়া হয়েছে যাতে Render-এ বোট সহজে ডিসকানেক্ট না হয়
         bot.polling(none_stop=True, interval=0, timeout=60)
     except Exception as e:
-        # কোনো এরর আসলে সেটি প্রিন্ট করবে এবং ৫ সেকেন্ড পর আবার চেষ্টা করবে
-        print(f"Connection Error: {e}")
+        print(f"Connection error: {e}")
+        # ৫ সেকেন্ড অপেক্ষা করে আবার চেষ্টা করবে
         time.sleep(5)
         continue
-()
