@@ -518,16 +518,4 @@ def admin_block_user(message):
 
 # স্টার্ট বোট
 print("--- Siyam, Your Premium Bot with History is Online! ---")
-# --- ৮. বোট রান (সবার শেষে) ---
-while True:
-    while True:
-    while True:
-    try:
-        print("--- Siyam, Your Bot is Starting with New Token! ---")
-        # timeout বাড়িয়ে দেওয়া হয়েছে যাতে Render-এ বোট সহজে ডিসকানেক্ট না হয়
-        bot.polling(none_stop=True, interval=0, timeout=60)
-    except Exception as e:
-        print(f"Connection error: {e}")
-        # ৫ সেকেন্ড অপেক্ষা করে আবার চেষ্টা করবে
-        time.sleep(5)
-        continue
+bot.infinity_polling()
