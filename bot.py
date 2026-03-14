@@ -14,24 +14,23 @@ BOT_TOKEN = '8743917242:AAHaZfpFi13ZIYyglcNU0n1pvS2Z-WY3zes'
 ADMIN_ID = 7585875519 
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 
-# --- ২. ওয়েব সার্ভার লজিক (যাতে বোট অফ না হয়) ---
+# --- ওয়েব সার্ভার সেটিংস (Render এর পোর্টের জন্য) ---
 app = Flask('')
 
 @app.route('/')
 def home():
-    return "I am alive!"
+    return "Bot is Running!"
 
 def run():
-    # Render-এর জন্য পোর্ট সেটআপ
+    # Render অটোমেটিক পোর্ট অ্যাসাইন করে, তাই এটি প্রয়োজন
     port = int(os.environ.get("PORT", 8080))
     app.run(host='0.0.0.0', port=port)
 
 def keep_alive():
     t = Thread(target=run)
-    t.daemon = True # যাতে মেইন প্রোগ্রাম বন্ধ হলে এটিও বন্ধ হয়
     t.start()
-
-# --- ৩. ডাটাবেস সেটআপ ---
+    
+# --- ২. ডাটাবেস সেটআপ ---
 def db_query(query, params=(), fetch=False):
     conn = sqlite3.connect('premium_investment_final.db')
     cursor = conn.cursor()
@@ -153,9 +152,8 @@ def handle_msg(message):
     if not is_user_valid(uid): return
 
     elif "📊 ব্যালেন্স" in txt:
-    res = db_query("SELECT balance FROM users WHERE uid=?", (uid,), fetch=True)
-    bal = res[0][0] if res and res[0] else 0.0
-    # ... বাকি মেসেজ কোড
+        res = db_query("SELECT balance FROM users WHERE uid=?", (uid,), fetch=True)
+        bal = res[0][0] if res else 0.0
 
         balance_msg = f"""💰 <b>আপনার বর্তমান ব্যালেন্স</b>
 
@@ -490,23 +488,14 @@ def callback_logic(call):
 def admin_final_depo(message, target_uid, old_id):
     try:
         amt = float(message.text)
-        # ডাটাবেসে ব্যালেন্স আপডেট
         db_query("UPDATE users SET balance = balance + ? WHERE uid = ?", (amt, target_uid))
-        
-        # ডিপোজিট হিস্টরি সেভ (এটি না করলে হিস্টরি খালি দেখাবে)
+        # ডিপোজিট হিস্টরি সেভ
         db_query("INSERT INTO history (uid, type, amount, info, date) VALUES (?, ?, ?, ?, ?)", 
-                 (target_uid, 'DEPO', amt, "অ্যাডমিন কর্তৃক অনুমোদিত", datetime.now().strftime('%Y-%m-%d %H:%M')))
+                 (target_uid, 'DEPO', amt, "এডমিন এপ্রুভড", datetime.now().strftime('%Y-%m-%d %H:%M')))
         
-        # ইউজারকে নোটিফিকেশন দেওয়া
-        bot.send_message(target_uid, f"✅ অভিনন্দন! অ্যাডমিন আপনার অ্যাকাউন্টে ৳{amt} যুক্ত করেছে।")
-        
-        # অ্যাডমিনকে কনফার্ম করা
-        bot.edit_message_caption(f"✅ অনুমোদিত: ৳{amt}\nইউজার আইডি: {target_uid}", ADMIN_ID, old_id)
-        
-    except ValueError:
-        bot.send_message(ADMIN_ID, "❌ ভুল হয়েছে! শুধুমাত্র সংখ্যা লিখুন (যেমন: 500)।")
-    except Exception as e:
-        bot.send_message(ADMIN_ID, f"❌ ত্রুটি: {str(e)}")
+        bot.send_message(target_uid, f"✅ এডমিন আপনার ৳{amt} ডিপোজিট সফলভাবে যুক্ত করেছে।")
+        bot.edit_message_caption(f"✅ অনুমোদিত: ৳{amt}", ADMIN_ID, old_id)
+    except: bot.send_message(ADMIN_ID, "❌ ভুল অ্যামাউন্ট!")
 
 def process_withdraw_amount(message, method):
     num = message.text
@@ -546,20 +535,6 @@ def admin_block_user(message):
         bot.send_message(ADMIN_ID, f"✅ ইউজার {target_id} সফলভাবে {action} করা হয়েছে।")
     except: bot.send_message(ADMIN_ID, "❌ ফরম্যাট ভুল!")
 
-# --- ১০. বোট রান (সবার শেষে) ---
-if __name__ == "__main__":
-    # ওয়েব সার্ভার চালু করা (এটি Render-এর জন্য জরুরি)
-    keep_alive() 
-    
-    print("--- Siyam, Your Full Bot is Online! ---")
-    
-    # পোলিং শুরু করার আগে পুরনো কোনো কানেকশন থাকলে তা রিমুভ করা
-    bot.remove_webhook()
-    
-    # লুপের ভেতরে ইন্ডেন্টেশন (৪টি স্পেস) ঠিক রাখা হয়েছে
-    while True:
-        try:
-            bot.polling(none_stop=True, interval=0, timeout=60)
-        except Exception as e:
-            print(f"Polling Error: {e}")
-            time.sleep(5)
+# স্টার্ট বোট
+print("--- Siyam, Your Premium Bot with History is Online! ---")
+bot.infinity_polling()
