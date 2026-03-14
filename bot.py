@@ -5,38 +5,13 @@ from datetime import datetime
 import random
 import string
 import time
-import os
-from flask import Flask
-from threading import Thread
-import logging
 
-# Logging যোগ করা হয়েছে (Render logs-এ সমস্যা খুঁজতে সুবিধা)
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# ── কনফিগারেশন ──
+# --- ১. কনফিগারেশন ---
 BOT_TOKEN = '8743917242:AAHaZfpFi13ZIYyglcNU0n1pvS2Z-WY3zes'
 ADMIN_ID = 7585875519 
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 
-# ── Flask ওয়েব সার্ভার (Render-এর জন্য আবশ্যক) ──
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "Bot is Running! (Render keep-alive)"
-
-def run_flask():
-    port = int(os.environ.get("PORT", 10000))
-    logger.info(f"Flask starting on port {port}")
-    app.run(
-        host='0.0.0.0',
-        port=port,
-        debug=False,
-        use_reloader=False
-    )
-
-# ── ডাটাবেস ──
+# --- ২. ডাটাবেস সেটআপ ---
 def db_query(query, params=(), fetch=False):
     conn = sqlite3.connect('premium_investment_final.db')
     cursor = conn.cursor()
@@ -56,40 +31,54 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT, uid INTEGER, plan_id INTEGER, 
         start_date TEXT, daily_profit REAL, last_claim TEXT DEFAULT '') """)
     
+    # লেনদেন হিস্টরির জন্য নতুন টেবিল
     db_query(""" CREATE TABLE IF NOT EXISTS history (
         id INTEGER PRIMARY KEY AUTOINCREMENT, uid INTEGER, type TEXT, 
         amount REAL, info TEXT, date TEXT) """)
 
 init_db()
 
-# ── ১৫ মিনিট রোটেশন ──
+# ==================== ১৫ মিনিট রোটেশন + টাইমার ====================
 def get_current_number(method):
+    """প্রতি ১৫ মিনিট পর নম্বর অটো চেঞ্জ করার সঠিক লজিক"""
     now = datetime.now()
+    # ২৪ ঘণ্টার প্রতিটি ১৫ মিনিটের ব্লককে আলাদা ইনডেক্স দেওয়া হলো
     current_slot = (now.hour * 4) + (now.minute // 15)
+    
     number_list = NUMBERS[method]
+    # লিস্টের দৈর্ঘ্য অনুযায়ী নম্বরটি খুঁজে বের করা
     index = current_slot % len(number_list)
+    
     return number_list[index]
 
+
 def get_remaining_minutes():
+    """এই নম্বর আর কত মিনিট পর চেঞ্জ হবে তার নির্ভুল হিসাব"""
     now = datetime.now()
     current_min = now.minute
+    # পরবর্তী ১৫ মিনিটের বাউন্ডারি (যেমন: ১৫, ৩০, ৪৫, ৬০)
     next_boundary = ((current_min // 15) + 1) * 15
     remaining = next_boundary - current_min
-    return remaining if remaining > 0 else 15
+    
+    return remaining
 
+
+
+# তোমার NUMBERS (যত খুশি নম্বর রাখতে পারো)
 NUMBERS = {
     'Bkash': ['01864707606', '01906245591', '01735047020'],
     'Nagad': ['01906245591', '01864707606', '01302550839'],
     'Rocket': ['01906245591', '01906245591', '01906475591']
 }
 
+# ১৫টি প্রিমিয়াম ইনভেস্টমেন্ট প্ল্যান
 PLANS = { i: {'price': p, 'daily': d, 'days': t, 'bonus': b} for i, p, d, t, b in [ 
     (1, 800, 80, 30, 5), (2, 1500, 120, 45, 10), (3, 3000, 200, 60, 20), (4, 5000, 320, 75, 30),
     (5, 8000, 480, 90, 50), (6, 12000, 650, 120, 70), (7, 18000, 900, 150, 100), (8, 25000, 1300, 180, 150),
     (9, 35000, 1800, 210, 200), (10, 50000, 2500, 240, 300), (11, 65000, 3200, 270, 400), (12, 80000, 3900, 300, 500),
     (13, 95000, 4500, 320, 600), (14, 110000, 5200, 340, 750), (15, 120000, 6000, 365, 1000) ] }
 
-# ── কীবোর্ড ও হেল্পার ফাংশন ──
+# --- ৩. কিবোর্ড ডিজাইন ---
 def main_menu(uid):
     markup = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
     markup.add("📊 ব্যালেন্স 💰", "📈 ইনভেস্ট প্ল্যান 🚀")
@@ -110,7 +99,8 @@ def get_user_bonus_amount(uid):
     if not res: return 0
     return PLANS[res[0][0]]['bonus']
 
-# ── মেসেজ হ্যান্ডলার ──
+# --- ৪. মেসেজ হ্যান্ডলার ---
+
 @bot.message_handler(commands=['start'])
 def start(message):
     uid = message.chat.id
@@ -142,7 +132,7 @@ def handle_msg(message):
     uid, txt = message.chat.id, message.text
     if not is_user_valid(uid): return
 
-    if "📊 ব্যালেন্স" in txt:
+    elif "📊 ব্যালেন্স" in txt:
         res = db_query("SELECT balance FROM users WHERE uid=?", (uid,), fetch=True)
         bal = res[0][0] if res else 0.0
 
@@ -296,7 +286,7 @@ def handle_msg(message):
         
         res = db_query("SELECT last_bonus FROM users WHERE uid=?", (uid,), fetch=True)
         today = datetime.now().strftime('%Y-%m-%d')
-        if res and res[0][0] == today:
+        if res[0][0] == today:
             bot.send_message(uid, "❌ আপনি আজ অলরেডি বোনাস নিয়েছেন। আগামীকাল আবার চেষ্টা করুন।")
         else:
             db_query("UPDATE users SET balance = balance + ?, last_bonus = ? WHERE uid = ?", (bonus_amt, today, uid))
@@ -342,7 +332,8 @@ def handle_msg(message):
         )
         bot.send_message(uid, "🛠 <b>এডমিন কন্ট্রোল সেন্টার</b>", reply_markup=markup)
 
-# ── ব্যাকএন্ড লজিক ──
+# --- ৫. ব্যাকএন্ড লজিক ---
+
 def process_buy_plan(message):
     try:
         pid = int(message.text)
@@ -352,6 +343,7 @@ def process_buy_plan(message):
             if res[0][0] >= PLANS[pid]['price']:
                 db_query("UPDATE users SET balance = balance - ? WHERE uid = ?", (PLANS[pid]['price'], uid))
                 db_query("INSERT INTO investments (uid, plan_id, daily_profit) VALUES (?, ?, ?)", (uid, pid, PLANS[pid]['daily']))
+                # হিস্টরি সেভ
                 db_query("INSERT INTO history (uid, type, amount, info, date) VALUES (?, ?, ?, ?, ?)", 
                          (uid, 'PACK', PLANS[pid]['price'], f"প্যাকেজ {pid}", datetime.now().strftime('%Y-%m-%d %H:%M')))
                 
@@ -372,8 +364,7 @@ def process_buy_plan(message):
 ━━━━━━━━━━━━━━━━━━━━"""
                 bot.send_message(uid, notice)
             else: bot.send_message(uid, "❌ আপনার পর্যাপ্ত ব্যালেন্স নেই। আগে ডিপোজিট করুন।")
-    except:
-        bot.send_message(message.chat.id, "❌ ভুল নম্বর! শুধু প্যাকেজ আইডি দিন।")
+    except: bot.send_message(message.chat.id, "❌ ভুল নম্বর! শুধু প্যাকেজ আইডি দিন।")
 
 def process_deposit_screenshot(message):
     if message.content_type == 'photo':
@@ -383,7 +374,8 @@ def process_deposit_screenshot(message):
         bot.send_photo(ADMIN_ID, message.photo[-1].file_id, caption=f"🔔 <b>নতুন ডিপোজিট রিকোয়েস্ট</b>\nUID: <code>{message.chat.id}</code>", reply_markup=markup)
         bot.send_message(message.chat.id, "⏳ আপনার পেমেন্ট স্ক্রিনশটটি পাঠানো হয়েছে। এডমিন চেক করে ব্যালেন্স যোগ করে দিবে।")
 
-# ── কলব্যাক হ্যান্ডলার ──
+# --- ৬. এডমিন ও ইউজার অ্যাকশন (Callbacks) ---
+
 @bot.callback_query_handler(func=lambda call: True)
 def callback_logic(call):
     uid, data = call.message.chat.id, call.data
@@ -405,8 +397,7 @@ def callback_logic(call):
         bot.register_next_step_handler(msg, process_withdraw_amount, method)
 
     elif data.startswith("depo_"):
-        action, target_uid_str = data.split("_")[1], data.split("_")[2]
-        target_uid = int(target_uid_str)
+        action, target_uid = data.split("_")[1], int(data.split("_")[2])
         if action == "acc":
             msg = bot.send_message(ADMIN_ID, f"ইউজার {target_uid} কে কত টাকা দিতে চান?")
             bot.register_next_step_handler(msg, admin_final_depo, target_uid, call.message.message_id)
@@ -415,10 +406,9 @@ def callback_logic(call):
             bot.edit_message_caption("❌ ডিপোজিট বাতিল করা হয়েছে।", ADMIN_ID, call.message.message_id)
 
     elif data.startswith("wd_"):
-        action, target_uid_str, amt_str = data.split("_")[1], data.split("_")[2], data.split("_")[3]
-        target_uid = int(target_uid_str)
-        amt = float(amt_str)
+        action, target_uid, amt = data.split("_")[1], int(data.split("_")[2]), float(data.split("_")[3])
         if action == "acc":
+            # উইথড্র হিস্টরি সেভ
             db_query("INSERT INTO history (uid, type, amount, info, date) VALUES (?, ?, ?, ?, ?)", 
                      (target_uid, 'WITH', amt, "সফল উত্তোলন", datetime.now().strftime('%Y-%m-%d %H:%M')))
             bot.send_message(target_uid, f"✅ আপনার ৳{amt} উইথড্র সফল হয়েছে।")
@@ -428,6 +418,7 @@ def callback_logic(call):
             bot.send_message(target_uid, f"❌ আপনার ৳{amt} উইথড্র বাতিল হয়েছে এবং টাকা ব্যালেন্সে ফেরত দেওয়া হয়েছে।")
             bot.edit_message_text(f"❌ উইথড্র বাতিল করা হয়েছে।", ADMIN_ID, call.message.message_id)
 
+    # লেনদেন হিস্টরি লজিক
     elif data.startswith("hist_"):
         h_type = data.split("_")[1]
         t_map = {'depo': 'DEPO', 'with': 'WITH', 'pack': 'PACK'}
@@ -454,7 +445,16 @@ def callback_logic(call):
 └─────────────────────┘\n"""
 
         h_msg += "━━━━━━━━━━━━━━━━━━━━━━━━━━━\n💡 সর্বোচ্চ সাম্প্রতিক ১০টি লেনদেন দেখানো হচ্ছে।"
+
         bot.send_message(uid, h_msg)
+        
+        if not results:
+            bot.send_message(uid, "📭 এই ক্যাটাগরিতে আপনার কোনো হিস্টরি পাওয়া যায়নি।")
+        else:
+            h_msg = f"📜 <b>আপনার {db_type} হিস্টরি:</b>\n━━━━━━━━━━━━━━━━━━━━\n"
+            for r in results:
+                h_msg += f"📅 {r[2]}\n💰 পরিমাণ: ৳{r[0]}\nℹ️ তথ্য: {r[1]}\n\n"
+            bot.send_message(uid, h_msg)
 
     elif data == "adm_broadcast":
         msg = bot.send_message(ADMIN_ID, "📢 সকল ইউজারকে পাঠানোর জন্য নোটিশটি লিখুন:")
@@ -464,18 +464,19 @@ def callback_logic(call):
         msg = bot.send_message(ADMIN_ID, "ব্লক করতে: `ID block` | আনব্লক করতে: `ID unblock` লিখুন।")
         bot.register_next_step_handler(msg, admin_block_user)
 
-# ── অ্যাডমিন ফাংশন ──
+# --- ৭. এডমিন প্রসেসিং ফাংশনস ---
+
 def admin_final_depo(message, target_uid, old_id):
     try:
         amt = float(message.text)
         db_query("UPDATE users SET balance = balance + ? WHERE uid = ?", (amt, target_uid))
+        # ডিপোজিট হিস্টরি সেভ
         db_query("INSERT INTO history (uid, type, amount, info, date) VALUES (?, ?, ?, ?, ?)", 
                  (target_uid, 'DEPO', amt, "এডমিন এপ্রুভড", datetime.now().strftime('%Y-%m-%d %H:%M')))
         
         bot.send_message(target_uid, f"✅ এডমিন আপনার ৳{amt} ডিপোজিট সফলভাবে যুক্ত করেছে।")
         bot.edit_message_caption(f"✅ অনুমোদিত: ৳{amt}", ADMIN_ID, old_id)
-    except:
-        bot.send_message(ADMIN_ID, "❌ ভুল অ্যামাউন্ট!")
+    except: bot.send_message(ADMIN_ID, "❌ ভুল অ্যামাউন্ট!")
 
 def process_withdraw_amount(message, method):
     num = message.text
@@ -484,8 +485,7 @@ def process_withdraw_amount(message, method):
 
 def finish_withdrawal(message, method, num):
     try:
-        amt = float(message.text)
-        uid = message.chat.id
+        amt, uid = float(message.text), message.chat.id
         res = db_query("SELECT balance FROM users WHERE uid=?", (uid,), fetch=True)
         if res[0][0] >= amt:
             db_query("UPDATE users SET balance = balance - ? WHERE uid = ?", (amt, uid))
@@ -494,10 +494,8 @@ def finish_withdrawal(message, method, num):
                        types.InlineKeyboardButton("❌ Cancel", callback_data=f"wd_can_{uid}_{amt}"))
             bot.send_message(ADMIN_ID, f"📤 <b>নতুন উইথড্র রিকোয়েস্ট</b>\nUID: {uid}\nমেথড: {method}\nতথ্য: {num}\nপরিমাণ: ৳{amt}", reply_markup=markup)
             bot.send_message(uid, "✅ আপনার উইথড্র রিকোয়েস্টটি এডমিনের কাছে পাঠানো হয়েছে।")
-        else:
-            bot.send_message(uid, "❌ পর্যাপ্ত ব্যালেন্স নেই।")
-    except:
-        pass
+        else: bot.send_message(uid, "❌ পর্যাপ্ত ব্যালেন্স নেই।")
+    except: pass
 
 def admin_broadcast_msg(message):
     users = db_query("SELECT uid FROM users", fetch=True)
@@ -506,42 +504,18 @@ def admin_broadcast_msg(message):
         try:
             bot.send_message(u[0], f"📢 <b>অফিশিয়াল নোটিশ</b>\n\n{message.text}")
             count += 1
-        except:
-            continue
+        except: continue
     bot.send_message(ADMIN_ID, f"✅ {count} জন ইউজারকে নোটিশ পাঠানো হয়েছে।")
 
 def admin_block_user(message):
     try:
         parts = message.text.split()
-        target_id = int(parts[0])
-        action = parts[1].lower()
+        target_id, action = int(parts[0]), parts[1].lower()
         val = 1 if action == "block" else 0
         db_query("UPDATE users SET is_blocked = ? WHERE uid = ?", (val, target_id))
         bot.send_message(ADMIN_ID, f"✅ ইউজার {target_id} সফলভাবে {action} করা হয়েছে।")
-    except:
-        bot.send_message(ADMIN_ID, "❌ ফরম্যাট ভুল!")
+    except: bot.send_message(ADMIN_ID, "❌ ফরম্যাট ভুল!")
 
-# ── প্রোগ্রাম শুরু ──
-if __name__ == "__main__":
-    logger.info("Starting application...")
-    print("--- Bot + Flask is starting for Render ---")
-    
-    # Flask background thread
-    flask_thread = Thread(target=run_flask, daemon=True)
-    flask_thread.start()
-    
-    time.sleep(1.5)  # Flask শুরু হওয়ার জন্য অল্প সময়
-    
-    logger.info("Flask thread started → starting bot polling")
-    
-    try:
-        bot.infinity_polling(
-            timeout=20,
-            long_polling_timeout=15,
-            drop_pending_updates=True
-        )
-    except Exception as e:
-        logger.error(f"Polling error: {e}")
-        time.sleep(8)
-        # পুনরায় চেষ্টা (অপশনাল – Render-এ restart হলে নিজে থেকে চলে)
-        bot.infinity_polling(timeout=20, long_polling_timeout=15, drop_pending_updates=True)
+# স্টার্ট বোট
+print("--- Siyam, Your Premium Bot with History is Online! ---")
+bot.infinity_polling()
