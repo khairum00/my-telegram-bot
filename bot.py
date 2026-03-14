@@ -5,13 +5,33 @@ from datetime import datetime
 import random
 import string
 import time
+import os
+from flask import Flask
+from threading import Thread
 
 # --- ১. কনফিগারেশন ---
 BOT_TOKEN = '8743917242:AAHaZfpFi13ZIYyglcNU0n1pvS2Z-WY3zes'
 ADMIN_ID = 7585875519 
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 
-# --- ২. ডাটাবেস সেটআপ ---
+# --- ২. ওয়েব সার্ভার লজিক (যাতে বোট অফ না হয়) ---
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "I am alive!"
+
+def run():
+    # Render-এর জন্য পোর্ট সেটআপ
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.daemon = True # যাতে মেইন প্রোগ্রাম বন্ধ হলে এটিও বন্ধ হয়
+    t.start()
+
+# --- ৩. ডাটাবেস সেটআপ ---
 def db_query(query, params=(), fetch=False):
     conn = sqlite3.connect('premium_investment_final.db')
     cursor = conn.cursor()
@@ -516,6 +536,23 @@ def admin_block_user(message):
         bot.send_message(ADMIN_ID, f"✅ ইউজার {target_id} সফলভাবে {action} করা হয়েছে।")
     except: bot.send_message(ADMIN_ID, "❌ ফরম্যাট ভুল!")
 
-# স্টার্ট বোট
-print("--- Siyam, Your Premium Bot with History is Online! ---")
-bot.infinity_polling()
+# --- ১০. বোট রান (সবার শেষে - এটি স্ক্রিনশট ৫ অনুযায়ী ঠিক করা) ---
+if __name__ == "__main__":
+    keep_alive() # এটি সবার আগে কল হবে
+    
+    print("--- Siyam, Your Full Bot is Online! ---")
+    
+    # বোটের পুরোনো ওয়েব হুক রিমুভ করা
+    try:
+        bot.remove_webhook()
+    except:
+        pass
+        
+    while True:
+        try:
+            # interval=0 এবং timeout=60 দিয়ে পোলিং শুরু
+            bot.polling(none_stop=True, interval=0, timeout=60)
+        except Exception as e:
+            print(f"Error: {e}")
+            time.sleep(5) # এরর আসলে ৫ সেকেন্ড অপেক্ষা করে আবার চেষ্টা করবে
+            continue
