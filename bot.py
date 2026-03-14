@@ -195,7 +195,7 @@ def handle_msg(message):
 ┌───────────────────────────────┐
 │ 🪙 <b>USDT (TRC20)</b>                │
 │ <code>TMbcaNfCmm3LsbtMsw5sFXSfdAJ4ibA3WN</code> │
-│ 🔸 মিনিমাম: $10                     │
+│ 🔸 মিনিমাম: $১০                     │
 └───────────────────────────────┘
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -518,4 +518,14 @@ def admin_block_user(message):
 
 # স্টার্ট বোট
 print("--- Siyam, Your Premium Bot with History is Online! ---")
-bot.infinity_polling()
+# --- ৮. বোট রান (সবার শেষে) ---
+while True:
+    try:
+        # এটি তোমার বোটকে সচল রাখবে এবং কানেকশন এরর হ্যান্ডেল করবে
+        bot.polling(none_stop=True, interval=0, timeout=60)
+    except Exception as e:
+        # কোনো এরর আসলে সেটি প্রিন্ট করবে এবং ৫ সেকেন্ড পর আবার চেষ্টা করবে
+        print(f"Connection Error: {e}")
+        time.sleep(5)
+        continue
+()
