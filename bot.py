@@ -153,8 +153,9 @@ def handle_msg(message):
     if not is_user_valid(uid): return
 
     elif "📊 ব্যালেন্স" in txt:
-        res = db_query("SELECT balance FROM users WHERE uid=?", (uid,), fetch=True)
-        bal = res[0][0] if res else 0.0
+    res = db_query("SELECT balance FROM users WHERE uid=?", (uid,), fetch=True)
+    bal = res[0][0] if res and res[0] else 0.0
+    # ... বাকি মেসেজ কোড
 
         balance_msg = f"""💰 <b>আপনার বর্তমান ব্যালেন্স</b>
 
@@ -489,14 +490,23 @@ def callback_logic(call):
 def admin_final_depo(message, target_uid, old_id):
     try:
         amt = float(message.text)
+        # ডাটাবেসে ব্যালেন্স আপডেট
         db_query("UPDATE users SET balance = balance + ? WHERE uid = ?", (amt, target_uid))
-        # ডিপোজিট হিস্টরি সেভ
-        db_query("INSERT INTO history (uid, type, amount, info, date) VALUES (?, ?, ?, ?, ?)", 
-                 (target_uid, 'DEPO', amt, "এডমিন এপ্রুভড", datetime.now().strftime('%Y-%m-%d %H:%M')))
         
-        bot.send_message(target_uid, f"✅ এডমিন আপনার ৳{amt} ডিপোজিট সফলভাবে যুক্ত করেছে।")
-        bot.edit_message_caption(f"✅ অনুমোদিত: ৳{amt}", ADMIN_ID, old_id)
-    except: bot.send_message(ADMIN_ID, "❌ ভুল অ্যামাউন্ট!")
+        # ডিপোজিট হিস্টরি সেভ (এটি না করলে হিস্টরি খালি দেখাবে)
+        db_query("INSERT INTO history (uid, type, amount, info, date) VALUES (?, ?, ?, ?, ?)", 
+                 (target_uid, 'DEPO', amt, "অ্যাডমিন কর্তৃক অনুমোদিত", datetime.now().strftime('%Y-%m-%d %H:%M')))
+        
+        # ইউজারকে নোটিফিকেশন দেওয়া
+        bot.send_message(target_uid, f"✅ অভিনন্দন! অ্যাডমিন আপনার অ্যাকাউন্টে ৳{amt} যুক্ত করেছে।")
+        
+        # অ্যাডমিনকে কনফার্ম করা
+        bot.edit_message_caption(f"✅ অনুমোদিত: ৳{amt}\nইউজার আইডি: {target_uid}", ADMIN_ID, old_id)
+        
+    except ValueError:
+        bot.send_message(ADMIN_ID, "❌ ভুল হয়েছে! শুধুমাত্র সংখ্যা লিখুন (যেমন: 500)।")
+    except Exception as e:
+        bot.send_message(ADMIN_ID, f"❌ ত্রুটি: {str(e)}")
 
 def process_withdraw_amount(message, method):
     num = message.text
