@@ -14,7 +14,7 @@ BOT_TOKEN = '8743917242:AAHaZfpFi13ZIYyglcNU0n1pvS2Z-WY3zes'
 ADMIN_ID = 7585875519 
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 
-# --- ওয়েব সার্ভার সেটিংস (Render এর পোর্টের জন্য) ---
+# --- ২. ওয়েব সার্ভার (Render পোর্টের জন্য) ---
 app = Flask('')
 
 @app.route('/')
@@ -29,8 +29,8 @@ def run():
 def keep_alive():
     t = Thread(target=run)
     t.start()
-    
-# --- ২. ডাটাবেস সেটআপ ---
+
+# --- ৩. ডাটাবেস সেটআপ ---
 def db_query(query, params=(), fetch=False):
     conn = sqlite3.connect('premium_investment_final.db')
     cursor = conn.cursor()
@@ -50,7 +50,6 @@ def init_db():
         id INTEGER PRIMARY KEY AUTOINCREMENT, uid INTEGER, plan_id INTEGER, 
         start_date TEXT, daily_profit REAL, last_claim TEXT DEFAULT '') """)
     
-    # লেনদেন হিস্টরির জন্য নতুন টেবিল
     db_query(""" CREATE TABLE IF NOT EXISTS history (
         id INTEGER PRIMARY KEY AUTOINCREMENT, uid INTEGER, type TEXT, 
         amount REAL, info TEXT, date TEXT) """)
@@ -538,3 +537,16 @@ def admin_block_user(message):
 # স্টার্ট বোট
 print("--- Siyam, Your Premium Bot with History is Online! ---")
 bot.infinity_polling()
+
+# --- ১০. বোট রান (সবার শেষে) ---
+if __name__ == "__main__":
+    keep_alive() # এই লাইনটিই Render এর পোর্ট ওপেন রাখবে
+    print("--- Siyam, Your Bot is Starting! ---")
+    bot.remove_webhook()
+    
+    while True:
+        try:
+            bot.polling(none_stop=True, interval=0, timeout=60)
+        except Exception as e:
+            print(f"Error: {e}")
+            time.sleep(5)
