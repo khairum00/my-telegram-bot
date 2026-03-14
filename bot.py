@@ -536,23 +536,20 @@ def admin_block_user(message):
         bot.send_message(ADMIN_ID, f"✅ ইউজার {target_id} সফলভাবে {action} করা হয়েছে।")
     except: bot.send_message(ADMIN_ID, "❌ ফরম্যাট ভুল!")
 
-# --- ১০. বোট রান (সবার শেষে - এটি স্ক্রিনশট ৫ অনুযায়ী ঠিক করা) ---
+# --- ১০. বোট রান (সবার শেষে) ---
 if __name__ == "__main__":
-    keep_alive() # এটি সবার আগে কল হবে
+    # ওয়েব সার্ভার চালু করা (এটি Render-এর জন্য জরুরি)
+    keep_alive() 
     
     print("--- Siyam, Your Full Bot is Online! ---")
     
-    # বোটের পুরোনো ওয়েব হুক রিমুভ করা
-    try:
-        bot.remove_webhook()
-    except:
-        pass
-        
+    # পোলিং শুরু করার আগে পুরনো কোনো কানেকশন থাকলে তা রিমুভ করা
+    bot.remove_webhook()
+    
+    # লুপের ভেতরে ইন্ডেন্টেশন (৪টি স্পেস) ঠিক রাখা হয়েছে
     while True:
         try:
-            # interval=0 এবং timeout=60 দিয়ে পোলিং শুরু
             bot.polling(none_stop=True, interval=0, timeout=60)
         except Exception as e:
-            print(f"Error: {e}")
-            time.sleep(5) # এরর আসলে ৫ সেকেন্ড অপেক্ষা করে আবার চেষ্টা করবে
-            continue
+            print(f"Polling Error: {e}")
+            time.sleep(5)
