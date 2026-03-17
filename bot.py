@@ -6,7 +6,7 @@ import random
 import string
 
 # --- ১. কনফিগারেশন ---
-BOT_TOKEN = '8743917242:AAGNIDHmL52chWKMCuwo2M3E77mwdN_vt4s'
+BOT_TOKEN = '8743917242:AAG1Ev3j1325D8ZiwhLNOcaKj0Xk1x6hYlI'
 ADMIN_ID = 7585875519 
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode="HTML")
 
